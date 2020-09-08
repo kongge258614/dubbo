@@ -516,21 +516,22 @@ public class DubboBootstrap extends GenericEventListener {
             return;
         }
 
+        //1. 初始化框架的扩展
         ApplicationModel.initFrameworkExts();
-
+        //2. 初始化配置中心
         startConfigCenter();
-
+        //3. 加载远程的配置
         loadRemoteConfigs();
-
+        //4. 检查全局配置
         checkGlobalConfigs();
 
         // @since 2.7.8
         startMetadataCenter();
-
+        // 5. 初始化元数据操作接口
         initMetadataService();
 
         initMetadataServiceExports();
-
+        //6. 将本身添加到事件监听器列表中，因为DubboBootstrap本身就是一个事件监听器
         initEventListener();
 
         if (logger.isInfoEnabled()) {
@@ -599,7 +600,7 @@ public class DubboBootstrap extends GenericEventListener {
     private void startConfigCenter() {
 
         useRegistryAsConfigCenterIfNecessary();
-
+        //从ConfigManager实例中获取配置中心的配置
         Collection<ConfigCenterConfig> configCenters = configManager.getConfigCenters();
 
         // check Config Center
@@ -624,6 +625,7 @@ public class DubboBootstrap extends GenericEventListener {
             }
             environment.setDynamicConfiguration(compositeDynamicConfiguration);
         }
+        // 刷新配置
         configManager.refreshAll();
     }
 
@@ -658,10 +660,11 @@ public class DubboBootstrap extends GenericEventListener {
      */
     private void useRegistryAsConfigCenterIfNecessary() {
         // we use the loading status of DynamicConfiguration to decide whether ConfigCenter has been initiated.
+        // 配置了注册中心
         if (environment.getDynamicConfiguration().isPresent()) {
             return;
         }
-
+        // 配置中心没有配置，如果有就直接返回
         if (CollectionUtils.isNotEmpty(configManager.getConfigCenters())) {
             return;
         }
@@ -730,6 +733,7 @@ public class DubboBootstrap extends GenericEventListener {
 
     /**
      * Is used the specified registry as a center infrastructure
+     * 是否使用指定的注册中心作为中心基础设施
      *
      * @param registryConfig       the {@link RegistryConfig}
      * @param usedRegistryAsCenter the configured value on
@@ -820,7 +824,7 @@ public class DubboBootstrap extends GenericEventListener {
         metadataAddressBuilder.append(address);
         return metadataAddressBuilder.toString();
     }
-
+    // 这个功能很简单，就是处理了RegistryConfig和ProtocolConfig的id不一致问题
     private void loadRemoteConfigs() {
         // registry ids to registry configs
         List<RegistryConfig> tmpRegistries = new ArrayList<>();
@@ -888,11 +892,13 @@ public class DubboBootstrap extends GenericEventListener {
     }
 
     /**
-     * Start the bootstrap
+     * Start the bootstrap  暴露服务的核心逻辑
      */
     public DubboBootstrap start() {
+        // 判断是不是没有启动，如果是就将true设置给started表示，然后执行启动程序
         if (started.compareAndSet(false, true)) {
             ready.set(false);
+            // 初始化
             initialize();
             if (logger.isInfoEnabled()) {
                 logger.info(NAME + " is starting...");
