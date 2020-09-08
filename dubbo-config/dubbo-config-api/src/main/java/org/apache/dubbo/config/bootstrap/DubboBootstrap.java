@@ -913,7 +913,7 @@ public class DubboBootstrap extends GenericEventListener {
                 //3. Register the local ServiceInstance if required
                 registerServiceInstance();
             }
-
+            // 处理Consumer的ReferenceConfig
             referServices();
             if (asyncExportingFutures.size() > 0) {
                 new Thread(() -> {
