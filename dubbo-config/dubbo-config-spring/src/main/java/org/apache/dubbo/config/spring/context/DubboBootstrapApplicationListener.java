@@ -41,7 +41,7 @@ public class DubboBootstrapApplicationListener extends OneTimeExecutionApplicati
     public static final String BEAN_NAME = "dubboBootstrapApplicationListener";
 
     private final DubboBootstrap dubboBootstrap;
-
+    //监听器构造方法中实例化DubboBootstrap实例
     public DubboBootstrapApplicationListener() {
         this.dubboBootstrap = DubboBootstrap.getInstance();
     }
@@ -49,8 +49,10 @@ public class DubboBootstrapApplicationListener extends OneTimeExecutionApplicati
     @Override
     public void onApplicationContextEvent(ApplicationContextEvent event) {
         if (event instanceof ContextRefreshedEvent) {
+            //如果是spring容器刷新事件，就启动dubbo服务
             onContextRefreshedEvent((ContextRefreshedEvent) event);
         } else if (event instanceof ContextClosedEvent) {
+            //如果是spring容器关闭事件，就停止dubbo服务
             onContextClosedEvent((ContextClosedEvent) event);
         }
     }
