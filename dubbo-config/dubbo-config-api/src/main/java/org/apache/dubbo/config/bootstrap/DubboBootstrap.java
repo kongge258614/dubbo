@@ -898,7 +898,6 @@ public class DubboBootstrap extends GenericEventListener {
         // 判断是不是没有启动，如果是就将true设置给started表示，然后执行启动程序
         if (started.compareAndSet(false, true)) {
             ready.set(false);
-            // 初始化
             initialize();
             if (logger.isInfoEnabled()) {
                 logger.info(NAME + " is starting...");
