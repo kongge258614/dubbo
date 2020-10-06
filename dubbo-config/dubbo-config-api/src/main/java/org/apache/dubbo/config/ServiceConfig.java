@@ -338,7 +338,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         if (StringUtils.isEmpty(name)) {
             name = DUBBO;
         }
-        //组装参数
+        //组装参数，读取配置信息，用于后面构造URL
         Map<String, String> map = new HashMap<String, String>();
         map.put(SIDE_KEY, PROVIDER_SIDE);
 
