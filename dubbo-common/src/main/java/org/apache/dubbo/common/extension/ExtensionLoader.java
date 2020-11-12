@@ -571,6 +571,10 @@ public class ExtensionLoader<T> {
         }
     }
 
+    /**
+     * 获取扩展点：1.获取接口实现类被 Adaptive 修饰的，如果获取不到则创建新的扩展点
+     * @return
+     */
     @SuppressWarnings("unchecked")
     public T getAdaptiveExtension() {
         Object instance = cachedAdaptiveInstance.get();
@@ -623,8 +627,19 @@ public class ExtensionLoader<T> {
         return new IllegalStateException(buf.toString());
     }
 
+    /**
+     * createExtension 方法的逻辑，包含了如下的步骤：
+     * 1、通过 getExtensionClasses 获取所有的拓展类
+     * 2、通过反射创建拓展对象
+     * 3、向拓展对象中注入依赖
+     * 4、将拓展对象包裹在相应的 Wrapper 对象中
+     * @param name
+     * @param wrap
+     * @return
+     */
     @SuppressWarnings("unchecked")
     private T createExtension(String name, boolean wrap) {
+        // 从配置文件中加载所有的拓展类，可得到“配置项名称”到“配置类”的映射关系表
         Class<?> clazz = getExtensionClasses().get(name);
         if (clazz == null) {
             throw findException(name);
@@ -632,14 +647,15 @@ public class ExtensionLoader<T> {
         try {
             T instance = (T) EXTENSION_INSTANCES.get(clazz);
             if (instance == null) {
+                // 通过反射创建实例
                 EXTENSION_INSTANCES.putIfAbsent(clazz, clazz.newInstance());
                 instance = (T) EXTENSION_INSTANCES.get(clazz);
             }
+
+            // 向实例中注入依赖  IOC
             injectExtension(instance);
 
-
             if (wrap) {
-
                 List<Class<?>> wrapperClassesList = new ArrayList<>();
                 if (cachedWrapperClasses != null) {
                     wrapperClassesList.addAll(cachedWrapperClasses);
@@ -647,11 +663,14 @@ public class ExtensionLoader<T> {
                     Collections.reverse(wrapperClassesList);
                 }
 
+                // 循环创建 Wrapper 实例
                 if (CollectionUtils.isNotEmpty(wrapperClassesList)) {
                     for (Class<?> wrapperClass : wrapperClassesList) {
                         Wrapper wrapper = wrapperClass.getAnnotation(Wrapper.class);
                         if (wrapper == null
                                 || (ArrayUtils.contains(wrapper.matches(), name) && !ArrayUtils.contains(wrapper.mismatches(), name))) {
+                            // 将当前 instance 作为参数传给 Wrapper 的构造方法，并通过反射创建 Wrapper 实例。
+                            // 然后向 Wrapper 实例中注入依赖，最后将 Wrapper 实例再次赋值给 instance 变量
                             instance = injectExtension((T) wrapperClass.getConstructor(type).newInstance(instance));
                         }
                     }
@@ -670,6 +689,13 @@ public class ExtensionLoader<T> {
         return getExtensionClasses().containsKey(name);
     }
 
+    /**
+     * Dubbo IOC 是通过 setter 方法注入依赖。Dubbo 首先会通过反射获取到实例的所有方法，然后再遍历方法列表，
+     * 检测方法名是否具有 setter 方法特征。若有，则通过 ObjectFactory 获取依赖对象，
+     * 最后通过反射调用 setter 方法将依赖设置到目标对象中。
+     * @param instance
+     * @return
+     */
     private T injectExtension(T instance) {
 
         if (objectFactory == null) {
@@ -687,15 +713,18 @@ public class ExtensionLoader<T> {
                 if (method.getAnnotation(DisableInject.class) != null) {
                     continue;
                 }
+                // 获取 setter 方法参数类型
                 Class<?> pt = method.getParameterTypes()[0];
                 if (ReflectUtils.isPrimitives(pt)) {
                     continue;
                 }
-
                 try {
+                    // 获取属性名，比如 setName 方法对应属性名 name
                     String property = getSetterProperty(method);
+                    // 从 ObjectFactory 中获取依赖对象
                     Object object = objectFactory.getExtension(pt, property);
                     if (object != null) {
+                        // 通过反射调用 setter 方法设置依赖
                         method.invoke(instance, object);
                     }
                 } catch (Exception e) {
@@ -751,6 +780,11 @@ public class ExtensionLoader<T> {
         return getExtensionClasses().get(name);
     }
 
+    /**
+     * 我们在通过名称获取拓展类之前，首先需要根据配置文件解析出拓展项名称到拓展类的映射关系表（Map\<名称, 拓展类>），
+     * 之后再根据拓展项名称从映射关系表中取出相应的拓展类即可。
+     * @return
+     */
     private Map<String, Class<?>> getExtensionClasses() {
         Map<String, Class<?>> classes = cachedClasses.get();
         if (classes == null) {
@@ -786,6 +820,7 @@ public class ExtensionLoader<T> {
      * extract and cache default extension name if exists
      */
     private void cacheDefaultExtensionName() {
+        // 获取 SPI 注解，这里的 type 变量是在调用 getExtensionLoader 方法时传入的
         final SPI defaultAnnotation = type.getAnnotation(SPI.class);
         if (defaultAnnotation == null) {
             return;
@@ -793,6 +828,7 @@ public class ExtensionLoader<T> {
 
         String value = defaultAnnotation.value();
         if ((value = value.trim()).length() > 0) {
+            // 对 SPI 注解内容进行切分
             String[] names = NAME_SEPARATOR.split(value);
             if (names.length > 1) {
                 throw new IllegalStateException("More than 1 default extension name on extension " + type.getName()
@@ -825,6 +861,7 @@ public class ExtensionLoader<T> {
 
             if (urls == null || !urls.hasMoreElements()) {
                 if (classLoader != null) {
+                    // 根据文件名加载所有的同名文件
                     urls = classLoader.getResources(fileName);
                 } else {
                     urls = ClassLoader.getSystemResources(fileName);
@@ -834,6 +871,7 @@ public class ExtensionLoader<T> {
             if (urls != null) {
                 while (urls.hasMoreElements()) {
                     java.net.URL resourceURL = urls.nextElement();
+                    // 加载资源
                     loadResource(extensionClasses, classLoader, resourceURL, overridden, excludedPackages);
                 }
             }
@@ -863,10 +901,12 @@ public class ExtensionLoader<T> {
                                 line = line.substring(i + 1).trim();
                             }
                             if (line.length() > 0 && !isExcluded(line, excludedPackages)) {
+                                // 加载类，并通过 loadClass 方法对类进行缓存
                                 loadClass(extensionClasses, resourceURL, Class.forName(line, true, classLoader), name, overridden);
                             }
                         } catch (Throwable t) {
-                            IllegalStateException e = new IllegalStateException("Failed to load extension class (interface: " + type + ", class line: " + line + ") in " + resourceURL + ", cause: " + t.getMessage(), t);
+                            IllegalStateException e = new IllegalStateException("Failed to load extension class (interface: " + type + ", class line: " + line + ") in " +
+                                    resourceURL + ", cause: " + t.getMessage(), t);
                             exceptions.put(line, e);
                         }
                     }
@@ -896,11 +936,16 @@ public class ExtensionLoader<T> {
                     type + ", class line: " + clazz.getName() + "), class "
                     + clazz.getName() + " is not subtype of interface.");
         }
+        // 检测目标类上是否有 Adaptive 注解
         if (clazz.isAnnotationPresent(Adaptive.class)) {
+            // 设置 cachedAdaptiveClass缓存
             cacheAdaptiveClass(clazz, overridden);
+
+            // 检测 clazz 是否是 Wrapper 类型
         } else if (isWrapperClass(clazz)) {
             cacheWrapperClass(clazz);
         } else {
+            // 检测 clazz 是否有默认的构造方法，如果没有，则抛出异常
             clazz.getConstructor();
             if (StringUtils.isEmpty(name)) {
                 name = findAnnotationName(clazz);
