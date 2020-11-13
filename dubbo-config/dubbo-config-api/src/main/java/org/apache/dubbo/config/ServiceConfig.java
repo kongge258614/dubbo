@@ -332,6 +332,13 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         }
     }
 
+    /**
+     * 配置检查完毕后，紧接着要做的事情是根据配置，以及其他一些信息组装 URL。
+     * 前面说过，URL 是 Dubbo 配置的载体，通过 URL 可让 Dubbo 的各种配置在各个模块之间传递。
+     * URL 之于 Dubbo，犹如水之于鱼，非常重要。在阅读 Dubbo 服务导出相关源码的过程中，要注意 URL 内容的变化。下面我们来了解一下 URL 组装的过程。
+     * @param protocolConfig
+     * @param registryURLs
+     */
     private void doExportUrlsFor1Protocol(ProtocolConfig protocolConfig, List<URL> registryURLs) {
         //获取协议名称，没有则默认使用dubbo
         String name = protocolConfig.getName();
